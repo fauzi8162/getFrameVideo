@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambil Frame dari Video</title>
+</head>
+<body>
+    <h2>Ambil Frame dari Video to Image</h2>
+    
+    <!-- Input untuk memilih video -->
+    <input type="file" id="videoInput" accept="video/*">
+    <br><br>
+	
+	<!-- Tombol untuk mengambil frame pertama -->
+    <button id="captureFrame">Download Frame Pertama</button>
+    <br><br>
+    
+    <!-- Input dan tombol untuk mengambil frame tertentu -->
+    <label for="frameNumber">Atau Masukan Nomor Frame:</label>
+    <input type="number" id="frameNumber" min="1" placeholder="Masukkan nomor frame">
+    <button id="captureSpecificFrame">Download Frame Tertentu</button>
+    <br><br>
+	
+    <!-- Elemen video tersembunyi -->
+    <video id="video" style="display:none;" controls></video>
+    
+    <!-- Canvas untuk menampilkan frame yang diambil -->
+    <canvas id="canvas" style="border:1px solid black;"></canvas>
+    <br><br>
+    
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const videoInput = document.getElementById('videoInput');
+        const captureFrameButton = document.getElementById('captureFrame');
+        const captureSpecificFrameButton = document.getElementById('captureSpecificFrame');
+        const frameNumberInput = document.getElementById('frameNumber');
+
+        let videoFileName = 'gambar'; // Nama default jika tidak ada file
+        const assumedFrameRate = 30; // Asumsi frame rate 30fps
+
+        videoInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                videoFileName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                const fileURL = URL.createObjectURL(file);
+                video.src = fileURL;
+                video.load();
+            }
+        });
+
+        video.addEventListener('loadedmetadata', function() {
+            // Setel ukuran canvas sesuai dengan ukuran video
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+        });
+
+        // Fungsi untuk mengunduh gambar dari canvas
+        function downloadCanvasImage(fileName) {
+            canvas.toBlob(function(blob) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${fileName}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }, 'image/png');
+        }
+
+        // Event listener untuk mengambil frame pertama
+        captureFrameButton.addEventListener('click', function() {
+            if (!video.src) {
+                alert('Silakan pilih file video terlebih dahulu.');
+                return;
+            }
+
+            // Pause video di frame pertama (waktu 0)
+            video.currentTime = 0;
+            video.addEventListener('seeked', function captureFrame() {
+                // Gambar frame video ke canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Unduh gambar PNG
+                downloadCanvasImage(videoFileName);
+
+                // Hapus event listener setelah menangkap frame
+                video.removeEventListener('seeked', captureFrame);
+            }, { once: true }); // Pastikan event listener hanya dijalankan sekali
+        });
+
+        // Event listener untuk mengambil frame tertentu
+        captureSpecificFrameButton.addEventListener('click', function() {
+            if (!video.src) {
+                alert('Silakan pilih file video terlebih dahulu.');
+                return;
+            }
+
+            const frameNumber = parseInt(frameNumberInput.value, 10);
+            if (isNaN(frameNumber) || frameNumber < 1) {
+                alert('Silakan masukkan nomor frame yang valid (angka positif).');
+                return;
+            }
+
+            // Hitung waktu berdasarkan nomor frame dan frame rate asumsi
+            const time = (frameNumber - 1) / assumedFrameRate;
+
+            if (time > video.duration) {
+                alert(`Nomor frame terlalu besar. Video hanya memiliki sekitar ${Math.floor(video.duration * assumedFrameRate)} frame.`);
+                return;
+            }
+
+            // Set waktu video ke waktu yang dihitung
+            video.currentTime = time;
+            video.addEventListener('seeked', function captureSpecificFrame() {
+                // Gambar frame video ke canvas
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Unduh gambar PNG
+                downloadCanvasImage(`${videoFileName}_frame_${frameNumber}`);
+
+                // Hapus event listener setelah menangkap frame
+                video.removeEventListener('seeked', captureSpecificFrame);
+            }, { once: true }); // Pastikan event listener hanya dijalankan sekali
+        });
+    </script>
+</body>
+</html>
